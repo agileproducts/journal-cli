@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"jcli-resolvepath"
 )
 
 // ValidateManuscript checks that the given file has a supported extension
@@ -17,7 +19,7 @@ func ValidateManuscript(path string) (string, error) {
 }
 
 func main() {
-	path, err := ResolvePath(os.Args, os.Stdin)
+	path, err := resolvepath.Resolve(os.Args, os.Stdin)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "usage: jcli-upload <manuscript-path> (or pipe a path via stdin)")
 		os.Exit(1)

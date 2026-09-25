@@ -6,6 +6,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"jcli-resolvepath"
 )
 
 // Check represents the outcome of a single validation rule run against a
@@ -77,7 +79,7 @@ func printChecks(checks []Check) {
 }
 
 func main() {
-	path, err := ResolvePath(os.Args, os.Stdin)
+	path, err := resolvepath.Resolve(os.Args, os.Stdin)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "usage: jcli-validate <manuscript-path> (or pipe a path via stdin)")
 		os.Exit(1)

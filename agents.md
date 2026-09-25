@@ -25,6 +25,18 @@ jcli-upload manuscript.md | xargs jcli-validate
 
 Implement this with a small `ResolvePath(args []string, stdin io.Reader) (string, error)` helper in each program, tested with red-green TDD, that errors clearly if neither an argument nor stdin input is provided.
 
+## Sharing code between programs
+
+If logic needs to be shared between two or more programs (e.g. `resolvepath`), factor it into its own top-level directory with its own `go.mod` and no `main.go` — it's a library module, not an installable tool. Wire it into a program's module with a local `replace` directive so nothing needs to be published:
+
+```
+cd some-program
+go mod edit -require=jcli-<lib>@v0.0.0 -replace=jcli-<lib>=../<lib>
+go mod tidy
+```
+
+The `Makefile` distinguishes these automatically: any top-level directory with a `go.mod` is included in `test`/`vet`/`fmt`, but only those that also have a `main.go` are treated as installable `PROGRAMS` for `build`/`install`.
+
 ## A description of the peer review process
 Each step will represnt a program. We will build this as we go. 
 
