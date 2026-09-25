@@ -1,9 +1,34 @@
 package resolvepath
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("input failed") }
+
+func TestResolveSubmissionIDAndFirstLine(t *testing.T) {
+	got, err := Resolve([]string{"jcli-tool"}, strings.NewReader("sub-123\nignored\n"))
+	if err != nil || got != "sub-123" {
+		t.Fatalf("got %q: %v", got, err)
+	}
+}
+
+func TestResolveEmptyArgumentDoesNotFallBackToStdin(t *testing.T) {
+	if _, err := Resolve([]string{"jcli-tool", ""}, strings.NewReader("sub-123\n")); err == nil {
+		t.Fatal("empty argument unexpectedly fell back to stdin")
+	}
+}
+
+func TestResolveReportsInputErrors(t *testing.T) {
+	_, err := Resolve(nil, failingReader{})
+	if err == nil || !strings.Contains(err.Error(), "input failed") {
+		t.Fatalf("lost reader error: %v", err)
+	}
+}
 
 func TestResolve_FromArgs(t *testing.T) {
 	got, err := Resolve([]string{"jcli-tool", "manuscript.md"}, strings.NewReader(""))

@@ -1,21 +1,19 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
 
 	"jcli-resolvepath"
+	"jcli-submission"
 )
 
 // Check represents the outcome of a single validation rule run against a
 // manuscript.
-type Check struct {
-	Name   string
-	Passed bool
-}
+type Check = submission.Check
 
 var (
 	titleRe      = regexp.MustCompile(`^#\s+\S`)
@@ -30,9 +28,8 @@ func RunChecks(content string) []Check {
 	hasAbstract := false
 	hasReferences := false
 
-	scanner := bufio.NewScanner(strings.NewReader(content))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for line := range strings.Lines(content) {
+		line = strings.TrimSpace(line)
 
 		if titleRe.MatchString(line) {
 			hasTitle = true
@@ -68,36 +65,61 @@ const (
 	colorRed   = "\x1b[31m"
 )
 
-func printChecks(checks []Check) {
-	for _, c := range checks {
-		mark := colorGreen + "✓" + colorReset
-		if !c.Passed {
-			mark = colorRed + "✗" + colorReset
+func printChecks(stderr io.Writer, checks []Check) {
+	color := false
+	if f, ok := stderr.(*os.File); ok && os.Getenv("NO_COLOR") == "" {
+		if info, err := f.Stat(); err == nil {
+			color = info.Mode()&os.ModeCharDevice != 0
 		}
-		fmt.Fprintf(os.Stderr, "%s %s\n", mark, c.Name)
+	}
+	for _, c := range checks {
+		mark, tint := "✓", colorGreen
+		if !c.Passed {
+			mark, tint = "✗", colorRed
+		}
+		if color {
+			mark = tint + mark + colorReset
+		}
+		fmt.Fprintf(stderr, "%s %s\n", mark, c.Name)
 	}
 }
 
-func main() {
-	path, err := resolvepath.Resolve(os.Args, os.Stdin)
+func run(args []string, stdin io.Reader, stdout, stderr io.Writer, store submission.Store) int {
+	id, err := resolvepath.Resolve(args, stdin)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "usage: jcli-validate <manuscript-path> (or pipe a path via stdin)")
-		os.Exit(1)
+		fmt.Fprintf(stderr, "usage: jcli-validate <submission-id> (or pipe an ID via stdin): %v\n", err)
+		return 1
 	}
 
-	data, err := os.ReadFile(path)
+	record, data, err := store.ReadManuscript(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "could not read %s: %v\n", path, err)
-		os.Exit(1)
+		fmt.Fprintln(stderr, err)
+		return 1
 	}
 
 	checks := RunChecks(string(data))
-	printChecks(checks)
+	if err := store.RecordValidation(id, record.Manuscript.Revision, checks); err != nil {
+		fmt.Fprintf(stderr, "could not save validation: %v\n", err)
+		return 1
+	}
+	printChecks(stderr, checks)
 
 	if !AllPassed(checks) {
-		fmt.Fprintln(os.Stderr, "manuscript failed validation")
+		fmt.Fprintf(stderr, "manuscript failed validation (results saved for %s)\n", id)
+		return 1
+	}
+	if _, err := fmt.Fprintln(stdout, id); err != nil {
+		fmt.Fprintf(stderr, "write submission ID: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func main() {
+	root, err := submission.DefaultRoot()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
-	fmt.Println(path)
+	os.Exit(run(os.Args, os.Stdin, os.Stdout, os.Stderr, submission.Store{Root: root}))
 }
