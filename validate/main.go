@@ -77,12 +77,11 @@ func printChecks(checks []Check) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: jcli-validate <manuscript-path>")
+	path, err := ResolvePath(os.Args, os.Stdin)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "usage: jcli-validate <manuscript-path> (or pipe a path via stdin)")
 		os.Exit(1)
 	}
-
-	path := os.Args[1]
 
 	data, err := os.ReadFile(path)
 	if err != nil {

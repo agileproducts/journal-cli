@@ -17,12 +17,13 @@ func ValidateManuscript(path string) (string, error) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: jcli-upload <manuscript-path>")
+	path, err := ResolvePath(os.Args, os.Stdin)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "usage: jcli-upload <manuscript-path> (or pipe a path via stdin)")
 		os.Exit(1)
 	}
 
-	path, err := ValidateManuscript(os.Args[1])
+	path, err = ValidateManuscript(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

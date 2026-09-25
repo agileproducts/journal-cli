@@ -8,6 +8,23 @@ Tools should be installed via the Go bin so they will run from anywhere in a she
 
 We need a naming convention, e.g. `jcli-upload`, `jcli-check`. 
 
+## Chaining programs together
+
+Every tool should accept its primary input (typically a manuscript path) either as `argv[1]` or, if no argument is given, as a single line read from stdin. Argument input always takes priority over stdin. This lets tools be chained the standard Unix way, e.g.:
+
+```
+jcli-upload manuscript.md | jcli-validate
+```
+
+as well as run standalone with an explicit argument, or via `xargs`/command substitution when preferred:
+
+```
+jcli-validate manuscript.md
+jcli-upload manuscript.md | xargs jcli-validate
+```
+
+Implement this with a small `ResolvePath(args []string, stdin io.Reader) (string, error)` helper in each program, tested with red-green TDD, that errors clearly if neither an argument nor stdin input is provided.
+
 ## A description of the peer review process
 Each step will represnt a program. We will build this as we go. 
 
